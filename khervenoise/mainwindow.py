@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QFileDialog,
 from . import APP_NAME, ORG_NAME, __version__
 from . import icons, importers, tooltips
 from .denoise_panel import DenoisePanel
-from .document import EXTENSION, Document
+from .document import EXTENSION, Document, natural_sort_key
 
 MAX_RECENT = 10
 KEY_RECENT = "recent_files"
@@ -144,6 +144,10 @@ class MainWindow(QMainWindow):
         self.a_import_excel = A("Import Excel", self.import_excel_dialog, icons.import_excel())
         self.a_import_data = A("Import Data File", self.import_data_dialog, icons.import_data())
         self.a_import_vamas = A("Import VAMAS", self.import_vamas_dialog, icons.import_vamas())
+        self.a_import_instrument = A("Import Instrument File", self.import_instrument_dialog,
+                                     icons.import_instrument())
+        self.a_import_folder = A("Import Folder", self.import_folder_dialog,
+                                 icons.import_folder())
         self.a_save = A("Save", self.save, icons.save(), QKeySequence.Save)
         self.a_save_as = A("Save As…", self.save_as, None, QKeySequence.SaveAs)
         self.a_export_kf = A("Export to KherveFitting", self.export_khervefitting_dialog,
@@ -187,6 +191,13 @@ class MainWindow(QMainWindow):
         imp.addAction(self._clone(self.a_import_excel, "&Excel File (.xlsx, .xls)…"))
         imp.addAction(self._clone(self.a_import_data, "&Data File (.asc, .txt, .dat, .xy, .csv)…"))
         imp.addAction(self._clone(self.a_import_vamas, "&VAMAS File (.vms)…"))
+        imp.addSeparator()
+        inst = imp.addMenu(icons.import_instrument(), "&Instrument")
+        inst.addAction(self._clone(self.a_import_instrument, "Any Instrument File…"))
+        inst.addSeparator()
+        self._build_instrument_menu(inst)
+        imp.addSeparator()
+        imp.addAction(self._clone(self.a_import_folder, "All Files in a &Folder…"))
         f.addSeparator()
         f.addAction(self._clone(self.a_save, "&Save"))
         f.addAction(self.a_save_as)
@@ -232,6 +243,17 @@ class MainWindow(QMainWindow):
         h.addSeparator()
         h.addAction(self._clone(self.a_about, f"&About {APP_NAME}"))
 
+    def _build_instrument_menu(self, menu):
+        """One submenu per vendor (Thermo, Kratos, PHI…), one entry per
+        format — KherveFitting's Import ▸ XPS layout."""
+        from . import vendors
+        for group, formats in vendors.groups().items():
+            sub = menu.addMenu(group)
+            for fmt in formats:
+                sub.addAction(f"{fmt.label}…",
+                              lambda f=fmt: self._import_dialog(
+                                  f"Import {f.group} — {f.label}", f.file_filter))
+
     def _clone(self, action, text):
         """A menu entry that shares a toolbar action's slot, icon and
         shortcut but carries its own (longer) wording."""
@@ -252,7 +274,8 @@ class MainWindow(QMainWindow):
             self.addToolBar(Qt.TopToolBarArea, tb)
             return tb
         bar("File", [self.a_new_instance, self.a_open, self.a_import_excel,
-                     self.a_import_data, self.a_import_vamas, self.a_save,
+                     self.a_import_data, self.a_import_vamas, self.a_import_instrument,
+                     self.a_import_folder, self.a_save,
                      self.a_export_kf, self.a_export_csv, self.a_save_fig])
         bar("Denoise", [self.a_apply, self.a_auto, self.a_create, self.a_delete])
         bar("View", [self.a_zoom_box, self.a_zoom_out, self.a_y_in, self.a_y_out,
@@ -348,9 +371,9 @@ class MainWindow(QMainWindow):
     def open_dialog(self):
         path, _ = QFileDialog.getOpenFileName(
             self, "Open", self._last_dir(),
-            f"{importers.FILTER_ALL};;KherveNoise project (*{EXTENSION});;"
+            f"{importers.filter_all()};;KherveNoise project (*{EXTENSION});;"
             f"{importers.FILTER_EXCEL};;{importers.FILTER_VAMAS};;"
-            f"{importers.FILTER_DATA};;All files (*)")
+            f"{importers.FILTER_DATA};;{importers.filter_instruments()};;All files (*)")
         if path:
             self.open_path(path)
 
@@ -358,6 +381,8 @@ class MainWindow(QMainWindow):
         """Replace the current work by *path* (a .knoise project or any
         importable file). Returns the spectrum names now open."""
         if interactive and not self.maybe_save("Open"):
+            return []
+        if interactive and not self._accept_notices([path]):
             return []
         try:
             if path.lower().endswith(EXTENSION):
@@ -402,9 +427,27 @@ class MainWindow(QMainWindow):
             return ""
         return "\n\n" + "\n".join(f"  - {n} : {r}" for n, r in dismissed)
 
+    def _accept_notices(self, paths):
+        """Show each third-party format notice once (KherveFitting does so
+        for SDP files); drop the files the user declines."""
+        kept, answers = [], {}
+        for path in paths:
+            notice = importers.notice_for(path)
+            if notice and notice not in answers:
+                answers[notice] = QMessageBox.question(
+                    self, "Third-party format", notice + "\n\nDo you want to proceed?",
+                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No) == QMessageBox.Yes
+            if not notice or answers[notice]:
+                kept.append(path)
+        return kept
+
     def import_paths(self, paths, interactive=True):
         """ADD the spectra of *paths* to the document (one undo step).
         Returns (names added, dismissed)."""
+        if interactive:
+            paths = self._accept_notices(paths)
+            if not paths:
+                return [], []
         results, dismissed, failures = [], [], []
         for path in paths:
             try:
@@ -466,6 +509,26 @@ class MainWindow(QMainWindow):
     def import_vamas_dialog(self):
         self._import_dialog("Import VAMAS file", importers.FILTER_VAMAS)
 
+    def import_instrument_dialog(self):
+        from . import vendors
+        filters = [importers.filter_instruments()] + [
+            f"{f.group} — {f.file_filter}" for f in vendors.all_formats()]
+        self._import_dialog("Import instrument file(s)", ";;".join(filters))
+
+    def import_folder_dialog(self):
+        folder = QFileDialog.getExistingDirectory(self, "Import all files in a folder",
+                                                  self._last_dir())
+        if not folder:
+            return
+        paths = sorted((os.path.join(folder, n) for n in os.listdir(folder)
+                        if not n.startswith(".") and importers.kind_of(n)),
+                       key=lambda p: natural_sort_key(os.path.basename(p)))
+        if not paths:
+            QMessageBox.information(self, "Import Folder",
+                                    "No supported files in this folder.")
+            return
+        self.import_paths(paths)
+
     # ---- drag and drop ----
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
@@ -484,8 +547,9 @@ class MainWindow(QMainWindow):
             if others:
                 self.import_paths(others)
         else:
-            QMessageBox.warning(self, "Drop", "Only .knoise, Excel, VAMAS and data "
-                                "files (.asc, .txt, .dat, .xy, .csv) can be dropped.")
+            QMessageBox.warning(self, "Drop", "Only .knoise, Excel, VAMAS, instrument "
+                                "and data files (.asc, .txt, .dat, .xy, .csv) can be "
+                                "dropped.")
 
     # ---- recent files ----
     def recent_files(self):

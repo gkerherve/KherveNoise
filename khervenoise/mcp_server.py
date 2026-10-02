@@ -124,8 +124,10 @@ Start here:
 - get_project_info FIRST: every spectrum by NAME (C1s, O1s, Survey, \
 C1s_vmd…), its points and x range, which one is on screen, the method and \
 parameters in the controls. Every other tool addresses spectra by name.
-- import_file reads Excel (KherveFitting layout), VAMAS (.vms) or a \
-two-column data file (.asc/.txt/.dat/.xy/.csv) and ADDS its spectra.
+- import_file reads Excel (KherveFitting layout), VAMAS (.vms), a \
+two-column data file (.asc/.txt/.dat/.xy/.csv) or an instrument file \
+(Thermo Avantage/VGD/AVG, Kratos, PHI .spe/.pro, Scienta, MRS, \
+VG-Microtech, Igor, Diamond, SDP) and ADDS its spectra.
 
 The three methods (list_methods gives every parameter and its range):
 - "VMD" (default) — Variational Mode Decomposition: K band-limited modes, \

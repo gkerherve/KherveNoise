@@ -71,6 +71,31 @@ TIPS = {
          "Blocks recorded with 0 scans are skipped."],
         "The block's acquisition details are kept and written to the "
         "Experimental Description block when you export to KherveFitting."),
+    "File|Import Instrument File": (
+        "Import an instrument file",
+        "Reads the native or exported files of XPS instruments, as "
+        "KherveFitting does: Thermo Avantage (.xlsx, .xls), VGD and AVG; "
+        "Kratos .kal; PHI .spe spectra and .pro depth profiles; Scienta "
+        "Omicron .txt; MRS; VG-Microtech .1; Igor .itx and .dat; Diamond "
+        "Light Source NeXus and B07 .dat; SDP files from XPS International.",
+        ["Click the icon and pick one or several files — the file type list "
+         "narrows the choice to one instrument if you like.",
+         "Every region, block or cycle becomes a spectrum named after its "
+         "core level, added to those already open.",
+         "A report lists anything left out, such as images or maps, which "
+         "cannot be denoised."],
+        "The same readers run when you Open or drop a file, so this icon is "
+        "only a shortcut. File, Import, Instrument lists them per vendor."),
+    "File|Import Folder": (
+        "Import every file in a folder",
+        "Imports all the supported files of one folder in a single step — "
+        "a series of samples or a whole measurement session — each spectrum "
+        "added to the open ones.",
+        ["Click the icon and choose the folder.",
+         "Every file KherveNoise can read is imported, in natural name order "
+         "(sample2 before sample10).",
+         "Ctrl+Z removes the whole import in one go."],
+        "Spectra with the same name get a number (C1s, C1s1, C1s2…)."),
     "File|Save": (
         "Save the project",
         "Writes every spectrum — originals and denoised copies with the "

@@ -245,7 +245,12 @@ class McpToolExecutor:
         if not names:
             raise _ToolError("No spectra found. " +
                              "; ".join(f"{n}: {r}" for n, r in dismissed))
-        return {"imported": names, "dismissed": [{"name": n, "reason": r} for n, r in dismissed]}
+        out = {"imported": names,
+               "dismissed": [{"name": n, "reason": r} for n, r in dismissed]}
+        from .importers import notice_for
+        if notice_for(path):
+            out["notice"] = notice_for(path)
+        return out
 
     def _t_open_project(self, path, discard_unsaved_changes=False):
         path = os.path.abspath(os.path.expanduser(path))

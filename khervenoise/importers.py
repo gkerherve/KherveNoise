@@ -16,6 +16,9 @@ spectrum lands here with the same x / y values it would have there:
   "Experimental Description" sheets dismissed, values kept to 2 decimals.
   A workbook with no KherveFitting sheet at all falls back to "first two
   numeric columns of every sheet" (KherveFitting asks interactively there).
+* **Instrument formats** — Avantage, VGD, AVG, Kratos, PHI, Scienta, MRS,
+  VG-Microtech, Igor, Diamond and SDP live in ``khervenoise.vendors``; an
+  instrument format that recognises a file is tried first.
 * **Data files (.asc, .txt, .dat, .xy, .csv)** —
   ``XPS_ASC_CSV_Import``: two numeric columns separated by ';', ',' or
   whitespace, '#' comments skipped, one spectrum named after the file.
@@ -47,8 +50,6 @@ VAMAS_EXT = ('.vms', '.npl')
 DATA_EXT = ('.asc', '.txt', '.dat', '.xy', '.csv', '.tsv')
 ALL_EXT = EXCEL_EXT + VAMAS_EXT + DATA_EXT
 
-FILTER_ALL = ("All supported (*.knoise *.xlsx *.xlsm *.xls *.vms *.npl *.asc "
-              "*.txt *.dat *.xy *.csv *.tsv)")
 FILTER_EXCEL = "Excel files (*.xlsx *.xlsm *.xls)"
 FILTER_VAMAS = "VAMAS files (*.vms *.npl)"
 FILTER_DATA = "Data files (*.asc *.txt *.dat *.xy *.csv *.tsv)"
@@ -468,8 +469,16 @@ def read_data_file(path):
 
 
 # ---------------------------------------------------------------------------
+def vendor_formats(path):
+    """Instrument formats (``khervenoise.vendors``) that claim *path*."""
+    from . import vendors
+    return vendors.formats_for(path)
+
+
 def kind_of(path):
     low = str(path).lower()
+    if vendor_formats(path):
+        return "vendor"
     if low.endswith(EXCEL_EXT):
         return "excel"
     if low.endswith(VAMAS_EXT):
@@ -480,7 +489,13 @@ def kind_of(path):
 
 
 def read_any(path):
-    """Dispatch on the extension, as KherveFitting's drop handler does."""
+    """Dispatch on the extension (and content, for shared extensions such
+    as .xlsx / .txt / .dat), as KherveFitting's drop handler does: an
+    instrument format that recognises the file wins, then Excel, VAMAS and
+    plain data files."""
+    fmts = vendor_formats(path)
+    if fmts:
+        return fmts[0].reader(path)
     kind = kind_of(path)
     if kind == "excel":
         return read_excel(path)
@@ -489,3 +504,29 @@ def read_any(path):
     if kind == "data":
         return read_data_file(path)
     raise ValueError(f"Unsupported file type: {os.path.basename(path)}")
+
+
+def notice_for(path):
+    """A third-party notice to show before importing *path* ('' if none)."""
+    fmts = vendor_formats(path)
+    return fmts[0].notice if fmts else ""
+
+
+def all_extensions():
+    from . import vendors
+    exts = list(ALL_EXT)
+    for e in vendors.extensions():
+        if e not in exts:
+            exts.append(e)
+    return exts
+
+
+def filter_all():
+    pats = " ".join(f"*{e}" for e in (".knoise",) + tuple(all_extensions()))
+    return f"All supported ({pats})"
+
+
+def filter_instruments():
+    from . import vendors
+    pats = " ".join(f"*{e}" for e in vendors.extensions())
+    return f"Instrument files ({pats})"

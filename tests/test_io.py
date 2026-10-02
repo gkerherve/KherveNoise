@@ -119,3 +119,29 @@ def test_write_text(tmp_path):
     path = str(tmp_path / "a.csv")
     write_text(path, [sp])
     assert open(path).read().splitlines()[0] == "A BE,A Intensity"
+
+
+def test_every_vendor_module_registers():
+    """A vendor module that fails to import is skipped by the registry at
+    run time — so the tests must catch it."""
+    import importlib
+    from khervenoise import vendors
+    for name in vendors.MODULES:
+        mod = importlib.import_module(f"khervenoise.vendors.{name}")
+        assert mod.FORMATS, name
+        for fmt in mod.FORMATS:
+            assert fmt.extensions and all(e.startswith('.') and e == e.lower()
+                                          for e in fmt.extensions), fmt.key
+    keys = [f.key for f in vendors.all_formats()]
+    assert len(keys) == len(set(keys))
+
+
+def test_plain_files_are_not_claimed_by_vendors(tmp_path):
+    from khervenoise import importers
+    for name, text in (("C1s.txt", "290 1\n289 2\n288 3\n287 4\n"),
+                       ("C1s.dat", "290 1\n289 2\n288 3\n287 4\n"),
+                       ("C1s.csv", "290,1\n289,2\n288,3\n287,4\n")):
+        p = tmp_path / name
+        p.write_text(text)
+        assert importers.kind_of(str(p)) == "data", name
+        assert importers.read_any(str(p)).spectra[0]['Name'] == "C1s"

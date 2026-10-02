@@ -6,4 +6,6 @@ pandas>=2.0               # Excel / CSV import
 openpyxl>=3.1             # .xlsx import and the KherveFitting export
 xlrd>=2.0                 # legacy .xls import
 vamas>=0.1                # VAMAS (.vms) import — the reader KherveFitting uses
+olefile>=0.46             # Thermo VGD files (OLE containers)
+h5py>=3.8                 # optional: Diamond NeXus and Scienta HDF5 maps
 pytest>=8                 # tests

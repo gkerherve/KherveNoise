@@ -401,3 +401,29 @@ def update():
         p.drawArc(QRectF(5, 5, 22, 22), 30 * 16, 280 * 16)
         p.drawLine(QPointF(27, 6), QPointF(26.5, 12.5)); p.drawLine(QPointF(20, 12), QPointF(26.5, 12.5))
     return _icon(d)
+
+
+def import_instrument():
+    """A hemispherical analyser over a document — vendor instrument files."""
+    def d(p):
+        _doc(p)
+        p.setPen(_pen(BLUE, 2.0)); p.setBrush(Qt.NoBrush)
+        p.drawArc(QRectF(9, 9, 15, 15), 0, 180 * 16)
+        p.drawArc(QRectF(12.5, 12.5, 8, 8), 0, 180 * 16)
+        p.setPen(_pen(GREEN, 1.6))
+        p.drawPath(_peak_path(9, 24, 27, 4))
+        _badge(p, "INS", AMBER, QRectF(15, 2, 16, 10))
+    return _icon(d)
+
+
+def import_folder():
+    def d(p):
+        p.setPen(_pen(QColor("#a87a12"), 1.6)); p.setBrush(QColor("#f6c75a"))
+        path = QPainterPath()
+        path.moveTo(3, 8); path.lineTo(11, 8); path.lineTo(14, 11); path.lineTo(29, 11)
+        path.lineTo(29, 27); path.lineTo(3, 27); path.closeSubpath()
+        p.drawPath(path)
+        p.setPen(_pen(GREEN, 2.0)); p.setBrush(Qt.NoBrush)
+        for off in (0, 4):
+            p.drawPath(_peak_path(7 + off, 22 + off, 25 - off, 7))
+    return _icon(d)

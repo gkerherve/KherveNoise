@@ -15,9 +15,12 @@ any spectrum (XPS, Raman, FTIR, XAS, EELS…).
 - **Raw vs Denoised with a residual strip**, box zoom, line or scatter.
 - **Batch create**: denoise many spectra at once, each auto-tuned; the
   originals are never changed.
-- **Import** Excel (KherveFitting layout), **VAMAS** (.vms) and plain data
-  files (.asc / .txt / .dat / .xy / .csv) — read exactly as KherveFitting
-  reads them. Drag and drop works too.
+- **Import** Excel (KherveFitting layout), **VAMAS** (.vms), plain data
+  files (.asc / .txt / .dat / .xy / .csv) and **instrument files** — Thermo
+  Avantage / VGD / AVG, Kratos .kal, PHI .spe / .pro, Scienta Omicron,
+  MRS, VG-Microtech, Igor, Diamond Light Source (.nxs, B07 .dat) and SDP —
+  read exactly as KherveFitting reads them. Drag and drop, or a whole
+  folder at once.
 - **Export** straight back to a **KherveFitting workbook**, to CSV / text,
   or the figure to PNG / SVG / PDF. Projects save as `.knoise`.
 - **Claude-ready (MCP)**: *AI ▸ Connect to Claude* lets Claude Desktop,
@@ -47,7 +50,10 @@ A file given on the command line is opened: `python KherveNoise.py C1s.vms`.
 
 `tests/test_engine.py` checks the denoising maths against a verbatim copy of
 KherveFitting's code (`tests/kf_reference.py`) — the results are
-bit-for-bit identical.
+bit-for-bit identical. The `tests/test_vendors_*.py` files run
+KherveFitting's own importers on the same files and compare every value;
+they look for the KherveFitting sources in `KHERVEFITTING_SRC` and skip
+those comparisons when it is not there.
 
 ## Methods and references
 

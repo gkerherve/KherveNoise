@@ -98,7 +98,36 @@ does not leak into the filtering.
 | **VAMAS** (.vms) | One spectrum per block (blocks with 0 scans skipped). Kinetic energy is converted to binding energy with the block's photon energy; counts are divided by scans × dwell time and corrected by the transmission function, exactly as in KherveFitting. Names are normalised (C1s, Survey, VB, Auger lines such as *Ckll*). |
 | **Data files** (.asc, .txt, .dat, .xy, .csv) | Two columns, x then intensity, separated by `;`, `,`, tabs or spaces. Lines starting with `#` and header lines are ignored. The spectrum is named after the file. |
 
-*Open* replaces the current spectra; *Import* adds to them.
+| **Instrument files** | Read with KherveFitting's own importers (see below). |
+
+*Open* replaces the current spectra; *Import* adds to them;
+*Import ▸ All Files in a Folder* imports every supported file of a folder.
+
+#### Instrument files
+
+*File ▸ Import ▸ Instrument* lists them per vendor, as KherveFitting's
+*Import ▸ XPS* menu does. Opening or dropping the file works too.
+
+| Vendor | Files |
+|---|---|
+| **Thermo Scientific** | Avantage exports (.xlsx / .xls with a *Titles* sheet), VGD (.vgd), AVG (.avg) |
+| **Kratos** | .kal |
+| **PHI (Physical Electronics)** | MultiPak spectra (.spe), depth profiles (.pro — one spectrum per region and cycle) |
+| **Scienta Omicron** | SES plot files (.txt); map files (.txt) and HDF5 maps (.h5), imported as the summed spectrum KherveFitting makes from them |
+| **MRS** | .mrs |
+| **VG-Microtech** | .1 |
+| **Igor Pro** | .itx, .dat |
+| **Diamond Light Source** | NeXus (.nxs, I09 / B07 / I10) and B07 XPS .dat exports |
+| **XPS International** | SDP files (.sdp) — a third-party format: you are asked to confirm first |
+
+Images and 2D maps themselves (PHI SXI images, the pixels of a Thermo XY
+area scan or of a Scienta map) are not imported — there is no single
+spectrum in them to denoise. Where KherveFitting makes a spectrum from a
+map (the all-pixel average of a VGD area scan, the summed sweeps of a
+Scienta map), that spectrum is imported.
+
+Diamond NeXus files and Scienta HDF5 maps need the optional *h5py*
+package (in `requirements.txt`).
 
 The spectrum's name decides its axis: core-level names (C1s, O1s, Survey…)
 get the binding-energy axis read high to low; names starting with *FTIR*,

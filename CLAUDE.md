@@ -18,6 +18,9 @@ changes, port the change here and keep the two in step:
   results are bit-for-bit equal. Re-extract it rather than editing it.
 - controls and plots → `denoise_panel.py`, method by method
   (`_plot_fft` / `_plot_wav` / `_plot_vmd` / `_plot_result`).
+- instrument files → `vendors/*.py` (one module per KherveFitting
+  `*_Import.py`); `tests/test_vendors_*.py` load KherveFitting's own
+  importers from `KHERVEFITTING_SRC` (wx stubbed) and compare every value.
 - file reading → `importers.py` mirrors `Vamas_Import.open_vamas_file`,
   `Open.open_xlsx_file` + `ConfigFile.add_core_level_Data` and
   `XPS_ASC_CSV_Import` (including the `.2f` rounding of Excel / ASC / CSV
@@ -33,7 +36,8 @@ the number L rather than 1. Fix them in KherveFitting first if they are to chang
 
 - Python 3.12 / 3.13, **PySide6-Essentials** (never PyQt5/6, never the full
   PySide6 wheel), matplotlib, numpy, PyWavelets, pandas, openpyxl, xlrd,
-  vamas. A per-project `.venv` (as for the sibling apps).
+  vamas, olefile (VGD); h5py optional (NeXus, Scienta HDF5) and imported
+  lazily. A per-project `.venv` (as for the sibling apps).
 - Run: `python KherveNoise.py` or `python -m khervenoise`;
   `--mcp-server` forks the stdio MCP server before any Qt.
 - Crash log: `%TEMP%/khervenoise_crash.log` (faulthandler).
@@ -65,6 +69,21 @@ domain before passing that.
                       `'B.E.'` (x) and `'Raw Data'` (y) are what is denoised.
   - `importers.py`  — Qt-free readers returning `ImportResult`.
   - `exporters.py`  — KherveFitting-layout `.xlsx` and CSV / text.
+  - `vendors/`      — instrument formats, one Qt-free module per format
+                      family, each a port of a KherveFitting
+                      `libraries/FileMenu/*_Import.py`: `avantage`, `vgd`,
+                      `avg` (Thermo), `kal` (Kratos), `spe`, `pro` (PHI),
+                      `scienta`, `mrs`, `vgmicrotech`, `igor`, `diamond`,
+                      `sdp`. Each declares `FORMATS = [Format(...)]`
+                      (extensions, reader, optional `sniff` + `priority` for
+                      shared extensions such as .xlsx / .txt / .dat / .h5,
+                      optional third-party `notice`). `importers.read_any`
+                      tries a claiming vendor format first; the File ▸
+                      Import ▸ Instrument menu is built from
+                      `vendors.groups()`. Each module's docstring says which
+                      KherveFitting route it reproduces — the in-memory
+                      .kfit route (no rounding) when KherveFitting has one,
+                      otherwise the workbook route (`.2f`).
   - `denoise_panel.py` — the replica window as a `QWidget` (control column
                       in a scroll area + matplotlib figure). `create_spectra`
                       is the dialog-free Create (MCP uses it); `change_hook`

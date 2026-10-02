@@ -63,9 +63,12 @@ TOOLS = [
           ["name"]),
     _tool("import_file",
           "Import a file and ADD its spectra: Excel in KherveFitting layout "
-          "(.xlsx/.xls), VAMAS (.vms), or a two-column data file "
-          "(.asc/.txt/.dat/.xy/.csv). Returns the names created and any "
-          "sheet left out with the reason.",
+          "(.xlsx/.xls), VAMAS (.vms), a two-column data file "
+          "(.asc/.txt/.dat/.xy/.csv), or an instrument file — Thermo "
+          "Avantage (.xlsx/.xls) / VGD / AVG, Kratos .kal, PHI .spe / .pro, "
+          "Scienta .txt, MRS, VG-Microtech .1, Igor .itx / .dat, Diamond "
+          ".nxs / B07 .dat, SDP. Returns the names created and anything "
+          "left out with the reason.",
           {"path": {"type": "string", "description": "Absolute file path."}},
           ["path"]),
     _tool("open_project",
