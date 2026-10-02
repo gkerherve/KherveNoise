@@ -1,0 +1,9 @@
+PySide6-Essentials>=6.6   # Qt for Python (LGPL) — never the full PySide6 wheel
+matplotlib>=3.7
+numpy>=1.24
+PyWavelets>=1.4           # Wavelet method
+pandas>=2.0               # Excel / CSV import
+openpyxl>=3.1             # .xlsx import and the KherveFitting export
+xlrd>=2.0                 # legacy .xls import
+vamas>=0.1                # VAMAS (.vms) import — the reader KherveFitting uses
+pytest>=8                 # tests
