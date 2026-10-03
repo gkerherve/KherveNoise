@@ -76,6 +76,34 @@ def _apply_palette(app):
     app.setPalette(pal)
 
 
+def _make_app_class():
+    from PySide6.QtCore import QEvent
+    from PySide6.QtWidgets import QApplication
+
+    class KherveNoiseApp(QApplication):
+        """Receives the files Finder opens with KherveNoise (double-click,
+        drag onto the Dock icon, Open With): on macOS they arrive as a
+        QFileOpenEvent, not on the command line."""
+
+        def __init__(self, argv):
+            super().__init__(argv)
+            self.window = None
+            self.pending = []
+
+        def event(self, ev):
+            if ev.type() == QEvent.FileOpen:
+                path = ev.file()
+                if path:
+                    if self.window is None:
+                        self.pending.append(path)
+                    else:
+                        self.window.open_or_import(path)
+                return True
+            return super().event(ev)
+
+    return KherveNoiseApp
+
+
 def main():
     # An MCP host launches us as a plain stdio subprocess it owns. That
     # half must not build a QApplication, so it forks off before any Qt.
@@ -96,7 +124,7 @@ def main():
         pass
 
     from . import APP_NAME, ORG_NAME
-    app = QApplication(sys.argv)
+    app = _make_app_class()(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setOrganizationName(ORG_NAME)
     QApplication.setStyle(QStyleFactory.create("Fusion"))
@@ -108,11 +136,12 @@ def main():
     app.setWindowIcon(icons.app_icon())
     w = MainWindow()
     w.show()
+    app.window = w
     files = [a for a in sys.argv[1:] if not a.startswith("-") and os.path.isfile(a)]
-    if files:
-        w.open_path(files[0])
-        if len(files) > 1:
-            w.import_paths(files[1:])
+    files += app.pending
+    app.pending = []
+    for path in files:
+        w.open_or_import(path)
     w.start_mcp_if_enabled()
     w.updater.schedule()
     sys.exit(app.exec())

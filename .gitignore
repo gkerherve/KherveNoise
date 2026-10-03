@@ -10,3 +10,4 @@ dist/
 *.spec.bak
 .DS_Store
 .claude/worktrees/
+khervenoise/VERSION

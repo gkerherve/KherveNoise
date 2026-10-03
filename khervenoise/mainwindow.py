@@ -421,6 +421,13 @@ class MainWindow(QMainWindow):
                                     + self._dismissed_text(dismissed))
         return doc.names()
 
+    def open_or_import(self, path):
+        """A file handed over by the OS (command line, Finder): a project or
+        the first file opens; later files are added to it."""
+        if path.lower().endswith(EXTENSION) or self.document.is_empty():
+            return self.open_path(path)
+        return self.import_paths([path])[0]
+
     @staticmethod
     def _dismissed_text(dismissed):
         if not dismissed:
@@ -772,7 +779,13 @@ class MainWindow(QMainWindow):
         return self.bridge
 
     def start_mcp_if_enabled(self):
-        if str(self.settings.value("mcp/enabled", False)).lower() in ("true", "1"):
+        # KHERVENOISE_MCP=read|edit|full starts the bridge at that level
+        # without touching the saved preferences (smoke tests of a build).
+        forced = os.environ.get("KHERVENOISE_MCP", "")
+        if forced:
+            self._ensure_bridge().set_access(forced)
+            self.bridge.start()
+        elif str(self.settings.value("mcp/enabled", False)).lower() in ("true", "1"):
             self._ensure_bridge().start()
 
     def show_mcp_dialog(self):

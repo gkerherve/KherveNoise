@@ -44,6 +44,24 @@ the number L rather than 1. Fix them in KherveFitting first if they are to chang
 - **Version** is derived in `_version.py` from `git rev-list --count HEAD`
   + short sha → `KherveNoise v0.1.N+sha`. Never edit a version by hand.
 
+## Packaging (PyInstaller)
+
+- `KherveNoise.spec` (Windows, one-folder `dist\KherveNoise\KherveNoise.exe`,
+  with a version resource) and `KherveNoiseMAC.spec` (macOS
+  `dist/KherveNoise.app`, Info.plist with the `.knoise` UTI and the spectrum
+  file types). Both take everything else from `packaging/spec_common.py`
+  — add a lazily imported dependency to `analysis_inputs()` there, once.
+- The specs stamp `khervenoise/VERSION` (git-ignored; `_version.get_version`
+  reads it first) and build `build/KherveNoise.ico` / `.icns` with
+  `packaging/make_icons.py` from `icons.app_icon_pixmap`.
+- Frozen-only paths: `--mcp-server` (the MCP host re-runs the exe),
+  `mcp_hosts.launch_command`, New Instance (`sys.executable`), the updater's
+  GitHub-release check, and Finder's `QFileOpenEvent` (`app.py`).
+- Smoke-test a build: run it with `KHERVENOISE_MCP=full` (and
+  `KHERVENOISE_STATE_DIR=<tmp>`) and drive it through
+  `<app> --mcp-server`; this starts the bridge without touching the saved
+  preferences.
+
 ## File size policy
 
 Every module in `khervenoise/` should stay near **1000 lines**; split by

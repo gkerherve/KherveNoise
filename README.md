@@ -42,6 +42,25 @@ python -m venv .venv
 
 A file given on the command line is opened: `python KherveNoise.py C1s.vms`.
 
+## Building the app (PyInstaller)
+
+One spec per platform, both sharing `packaging/spec_common.py`:
+
+```bash
+.venv/bin/pip install pyinstaller
+.venv/bin/pyinstaller KherveNoiseMAC.spec --noconfirm    # macOS  -> dist/KherveNoise.app
+```
+
+```bash
+.venv\Scripts\pyinstaller KherveNoise.spec --noconfirm  # Windows -> dist\KherveNoise\KherveNoise.exe
+```
+
+Each spec stamps the git version into the build (a frozen app has no
+`.git`) and renders the `.ico` / `.icns` from the app's own icon code into
+`build/`. Build each on its own platform. The Mac bundle opens `.knoise`
+projects and spectrum files from Finder; it is signed ad hoc but not
+notarised, so on another Mac open it the first time with right-click ▸ Open.
+
 ## Tests
 
 ```bash
