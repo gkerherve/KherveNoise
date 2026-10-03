@@ -107,9 +107,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: KherveNoise-${{ env.VERSION }}-macOS-${{ matrix.arch }}
+          # '*' also matches nothing, so each pattern covers the versioned
+          # name and the stable one (KherveNoise-macOS-<arch>.dmg).
           path: |
-            dist/KherveNoise-*-macOS-${{ matrix.arch }}.dmg
-            dist/KherveNoise-macOS-${{ matrix.arch }}.dmg
-            dist/KherveNoise-*-macOS-${{ matrix.arch }}.dmg.sha256
+            dist/KherveNoise-*macOS-${{ matrix.arch }}.dmg
+            dist/KherveNoise-*macOS-${{ matrix.arch }}.dmg.sha256
             dist/KherveNoise-macOS-${{ matrix.arch }}.json
           if-no-files-found: error

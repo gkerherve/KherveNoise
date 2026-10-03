@@ -74,7 +74,7 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopico
 
 [Registry]
 ; Per-user (HKCU) to match the per-user install.
-Root: HKCU; Subkey: "Software\Classes\.knoise"; ValueType: string; ValueName: ""; ValueData: "KherveNoise.Project"; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Classes\.knoise"; ValueType: string; ValueName: ""; ValueData: "KherveNoise.Project"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\Classes\KherveNoise.Project"; ValueType: string; ValueName: ""; ValueData: "KherveNoise project"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\Classes\KherveNoise.Project\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#AppExe},0"
 Root: HKCU; Subkey: "Software\Classes\KherveNoise.Project\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExe}"" ""%1"""
