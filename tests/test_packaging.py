@@ -43,3 +43,32 @@ def test_every_vendor_module_is_bundled():
     import spec_common
     src = open(spec_common.__file__).read()
     assert 'collect_submodules("khervenoise")' in src
+
+
+def test_installer_scripts_parse():
+    for name in ("build_installer.py", "build_macos.py", "smoke_test.py"):
+        ast.parse(open(os.path.join(ROOT, "packaging", name), encoding="utf-8").read())
+
+
+def test_installer_and_specs_agree_on_names():
+    """The Inno script, both build scripts and the specs all name the same
+    executable, and the stable file names are the ones the website links to."""
+    iss = open(os.path.join(ROOT, "packaging", "KherveNoise.iss"), encoding="utf-8").read()
+    assert '#define AppExe "KherveNoise.exe"' in iss
+    assert "OutputBaseFilename={#AppName}-Setup-{#APP_VERSION}" in iss
+    win = open(os.path.join(ROOT, "KherveNoise.spec"), encoding="utf-8").read()
+    assert 'name="KherveNoise"' in win
+    inst = open(os.path.join(ROOT, "packaging", "build_installer.py"), encoding="utf-8").read()
+    assert 'f"{_APP}-Setup.exe"' in inst and "-portable.zip" in inst
+    mac = open(os.path.join(ROOT, "packaging", "build_macos.py"), encoding="utf-8").read()
+    assert 'f"{_APP}-macOS-{arch}.dmg"' in mac
+    assert os.path.isfile(os.path.join(ROOT, "packaging", "macos", "entitlements.plist"))
+
+
+def test_workflows_build_but_never_release():
+    """CI builds and uploads artifacts only: a release is a deliberate act."""
+    for name, trigger in (("windows-build.yml", '"v*"'), ("macos-build.yml", '"macos-v*"')):
+        src = open(os.path.join(ROOT, ".github", "workflows", name), encoding="utf-8").read()
+        assert trigger in src
+        assert "actions/upload-artifact" in src and "smoke_test.py" in src
+        assert "gh release" not in src.replace("`gh release create", "")

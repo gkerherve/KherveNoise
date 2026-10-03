@@ -1,0 +1,115 @@
+name: macOS build
+
+# PyInstaller cannot cross-compile, so the .app has to be produced on a Mac.
+# Both architectures are built: macos-14 is Apple Silicon (arm64),
+# macos-15-intel the x86_64 image, so Intel users get a native DMG rather
+# than running Rosetta.
+#
+# Not macos-13: that image was retired in December 2025 and the label no
+# longer resolves, so a job asking for it queues for ever rather than
+# failing. macos-15-intel is GitHub's last x86_64 image and goes away in
+# August 2027, after which this matrix is arm64 only.
+#
+# This workflow only BUILDS. It uploads the DMGs as workflow artifacts and
+# never creates a release: publishing is a deliberate step done by hand from
+# those artifacts (`gh release create macos-v<ver> --latest=false ...`).
+#
+# Development happens on `dev`, not on the default branch, and GitHub only
+# lists workflow_dispatch workflows that exist on the default branch — so
+# the trigger is a tag push, which runs the workflow file of the tagged
+# commit wherever it lives:
+#
+#   git tag macos-v0.1.N && git push origin macos-v0.1.N
+
+on:
+  push:
+    tags:
+      - "macos-v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false     # an Intel failure should not hide a good arm64 build
+      matrix:
+        include:
+          - runner: macos-14
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45    # a hung test must not hold a runner for 6 hours
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The version is `git rev-list --count HEAD`, so a shallow
+          # clone would silently ship the wrong build number.
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Install Python dependencies
+        # h5py is "optional" in the app, but the spec bundles it when it is
+        # installed: without it the build would ship with no NeXus / HDF5
+        # import, so its presence is checked here rather than assumed.
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+          python -c "import PySide6, h5py, pywt, vamas; print('PySide6', PySide6.__version__)"
+
+      - name: Run the test suite
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest tests/ -q
+
+      - name: Build the .app and the DMG
+        run: python packaging/build_macos.py
+
+      - name: Read the version back
+        # Read from the file the build stamped, not from git again, so the
+        # artifact name cannot disagree with the app's own About box.
+        run: echo "VERSION=$(cut -d+ -f1 khervenoise/VERSION)" >> "$GITHUB_ENV"
+
+      - name: Check the bundle
+        # What can actually be wrong in a finished bundle: no Info.plist, a
+        # broken signature, the 0.1.0 placeholder version, h5py left out, or
+        # a binary built for the other architecture, which users meet as
+        # "the app is damaged".
+        run: |
+          set -euo pipefail
+          APP=dist/KherveNoise.app
+          test -x "$APP/Contents/MacOS/KherveNoise"
+          plutil -p "$APP/Contents/Info.plist" \
+            | grep -E 'CFBundleIdentifier|CFBundleShortVersionString'
+          test "$VERSION" != "0.1.0"
+          codesign --verify --deep --strict "$APP"
+          file -b "$APP/Contents/MacOS/KherveNoise" | grep -q '${{ matrix.arch }}'
+          find "$APP" -maxdepth 6 -iname 'h5py*' | grep -q .
+          find "$APP" -maxdepth 6 -name 'USER_GUIDE.md' | grep -q .
+
+      - name: Smoke-test the frozen app
+        # Start the real executable offscreen and drive it over MCP: import,
+        # the three denoising methods, a figure, an export. A missing hidden
+        # import only shows up when the code that needs it runs.
+        run: |
+          python packaging/smoke_test.py \
+            dist/KherveNoise.app/Contents/MacOS/KherveNoise --version "$VERSION"
+
+      - name: Upload the DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: KherveNoise-${{ env.VERSION }}-macOS-${{ matrix.arch }}
+          path: |
+            dist/KherveNoise-*-macOS-${{ matrix.arch }}.dmg
+            dist/KherveNoise-macOS-${{ matrix.arch }}.dmg
+            dist/KherveNoise-*-macOS-${{ matrix.arch }}.dmg.sha256
+            dist/KherveNoise-macOS-${{ matrix.arch }}.json
+          if-no-files-found: error

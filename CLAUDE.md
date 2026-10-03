@@ -54,6 +54,28 @@ the number L rather than 1. Fix them in KherveFitting first if they are to chang
 - The specs stamp `khervenoise/VERSION` (git-ignored; `_version.get_version`
   reads it first) and build `build/KherveNoise.ico` / `.icns` with
   `packaging/make_icons.py` from `icons.app_icon_pixmap`.
+- **Installers** (`packaging/`): `build_installer.py` (Windows: freeze +
+  portable zip + Inno `KherveNoise.iss`, per-user, `.knoise` association →
+  `dist/KherveNoise-Setup-<ver>.exe`, `KherveNoise-<ver>-portable.zip` and the
+  stable-name `KherveNoise-Setup.exe` the website links to) and
+  `build_macos.py` (macOS: freeze, inside-out ad hoc or Developer ID signing
+  via `MAC_SIGN_IDENTITY`, create-dmg → `KherveNoise-<ver>-macOS-<arch>.dmg`
+  + stable copy + `.sha256` + `.json`). Neither cross-compiles: Windows and
+  the Intel DMG are built by CI (below).
+- **`packaging/smoke_test.py <exe>`** starts a frozen build offscreen and
+  drives it over MCP (import, the three methods, a figure, an export) — a
+  freeze fails quietly, and a missing hidden import only shows when that code
+  runs. The CI jobs run it. The MCP method name is `FFT filter`, not `FFT`.
+- **CI** (`.github/workflows/`): `windows-build.yml` (tag `v*`) and
+  `macos-build.yml` (tag `macos-v*`; `macos-14` arm64 + `macos-15-intel`
+  x86_64). They run the tests, build, check, smoke-test and upload artifacts;
+  they **never create a release** — that is done by hand from the artifacts
+  (see `release-khervenoise` in the khervefitting-web repo's
+  `.claude/skills/`). Work is on `dev` and GitHub only lists
+  `workflow_dispatch` workflows that exist on the default branch (`main`),
+  so builds are started by pushing a tag. Tag the commit you want built; the
+  version is that commit's `git rev-list --count`, so any later commit
+  changes it.
 - Frozen-only paths: `--mcp-server` (the MCP host re-runs the exe),
   `mcp_hosts.launch_command`, New Instance (`sys.executable`), the updater's
   GitHub-release check, and Finder's `QFileOpenEvent` (`app.py`).

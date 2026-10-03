@@ -61,6 +61,23 @@ Each spec stamps the git version into the build (a frozen app has no
 projects and spectrum files from Finder; it is signed ad hoc but not
 notarised, so on another Mac open it the first time with right-click ▸ Open.
 
+### Installers
+
+```bash
+.venv/bin/python packaging/build_macos.py       # macOS   -> dist/KherveNoise-<ver>-macOS-<arch>.dmg
+.venv\Scripts\python packaging\build_installer.py   # Windows -> dist\KherveNoise-Setup-<ver>.exe + portable zip
+```
+
+`build_macos.py` signs the app inside-out (ad hoc, or a Developer ID with
+`MAC_SIGN_IDENTITY`) and builds a drag-to-install disk image with
+[create-dmg](https://github.com/create-dmg/create-dmg) (`brew install
+create-dmg`; a plain image without it). `build_installer.py` needs
+[Inno Setup 6](https://jrsoftware.org/isinfo.php). Both stamp the version
+from `git rev-list --count HEAD`, so a Windows and a Mac build of the same
+commit carry the same `0.1.<n>`. `packaging/smoke_test.py <exe>` starts a
+frozen build and drives it over MCP. The GitHub Actions workflows build both
+platforms (and the Intel DMG) when a `v*` / `macos-v*` tag is pushed.
+
 ## Tests
 
 ```bash
