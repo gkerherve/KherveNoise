@@ -15,8 +15,9 @@ import sys
 
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QAction, QKeySequence, QUndoCommand, QUndoStack
-from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QFileDialog,
-                               QInputDialog, QLabel, QListWidget,
+from PySide6.QtWidgets import (QCheckBox, QDialog, QDialogButtonBox,
+                               QFileDialog, QFormLayout, QInputDialog,
+                               QLabel, QLineEdit, QListWidget,
                                QListWidgetItem, QMainWindow, QMessageBox,
                                QPushButton, QHBoxLayout, QTextBrowser,
                                QToolBar, QVBoxLayout)
@@ -24,7 +25,8 @@ from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QFileDialog,
 from . import APP_NAME, ORG_NAME, __version__
 from . import icons, importers, tooltips
 from .denoise_panel import DenoisePanel
-from .document import EXTENSION, Document, natural_sort_key
+from .document import (EXTENSION, Document, axis_labels, natural_sort_key,
+                       x_reversed)
 
 MAX_RECENT = 10
 KEY_RECENT = "recent_files"
@@ -162,6 +164,7 @@ class MainWindow(QMainWindow):
         self.a_create = A("Create", p.on_create, icons.create_spectra(), "Ctrl+Return")
         self.a_delete = A("Delete Spectrum", self.delete_current, icons.delete_spectrum())
         self.a_rename = A("Rename Spectrum…", self.rename_current, None, "F2")
+        self.a_axes = A("Axes…", self.edit_axes_current)
         self.a_info = A("Spectrum Information…", self.show_spectrum_info)
 
         self.a_zoom_box = A("Zoom Box", p.on_box_zoom_toggle, icons.zoom_box())
@@ -217,6 +220,7 @@ class MainWindow(QMainWindow):
         s = m.addMenu("&Spectrum")
         s.addAction(self.a_rename)
         s.addAction(self._clone(self.a_delete, "&Delete Spectrum"))
+        s.addAction(self.a_axes)
         s.addAction(self.a_info)
 
         d = m.addMenu("&Denoise")
@@ -298,6 +302,8 @@ class MainWindow(QMainWindow):
         current = self.panel.current_sheet
         self.document.restore(snap)
         self.panel.populate_data_list(select=current)
+        if current and current == self.panel.current_sheet:
+            self.panel.load_selected_data()      # axes may have changed
         self._update_title()
 
     def _on_created(self, names):
@@ -723,6 +729,68 @@ class MainWindow(QMainWindow):
         if ok and new.strip() and new.strip() != old:
             if not self.rename_spectrum(old, new):
                 QMessageBox.warning(self, "Rename Spectrum", f"'{new}' is already taken.")
+
+    def set_axes(self, name, x_label=None, y_label=None, reversed_x=None,
+                 xps=None):
+        """Set a spectrum's axis labels, direction and whether it is XPS
+        (one undo step).  An empty label goes back to the default."""
+        sp = self.document.get(name)
+        if sp is None:
+            return False
+
+        def apply():
+            for key, val in (('X_Label', x_label), ('Y_Label', y_label)):
+                if val is None:
+                    continue
+                if str(val).strip():
+                    sp[key] = str(val).strip()
+                else:
+                    sp.pop(key, None)
+            if xps is not None:
+                sp['Technique'] = 'XPS' if xps else 'Other'
+            if reversed_x is not None:
+                sp['X_Reversed'] = bool(reversed_x)
+        self.change(f"Axes of {name}", apply)
+        if name == self.panel.current_sheet:
+            self.panel.load_selected_data()      # redraw with the new axes
+        return True
+
+    def edit_axes_current(self):
+        name = self.panel.current_sheet
+        sp = self.document.get(name) if name else None
+        if sp is None:
+            return
+        from .document import is_xps_like
+        dlg = QDialog(self)
+        dlg.setWindowTitle(f"Axes — {name}")
+        form = QFormLayout(dlg)
+        xps = QCheckBox("XPS spectrum (binding energy, read high to low)")
+        xps.setChecked(is_xps_like(name, sp))
+        xl, yl = QLineEdit(sp.get('X_Label', '')), QLineEdit(sp.get('Y_Label', ''))
+        rev = QCheckBox("Reverse the x axis (high to low)")
+        rev.setChecked(x_reversed(name, sp))
+
+        def placeholders():
+            probe = dict(sp, Technique='XPS' if xps.isChecked() else 'Other')
+            probe.pop('X_Label', None)
+            probe.pop('Y_Label', None)
+            dx, dy = axis_labels(name, probe)
+            xl.setPlaceholderText(dx.replace('$', ''))
+            yl.setPlaceholderText(dy.replace('$', ''))
+        xps.toggled.connect(placeholders)
+        xps.toggled.connect(rev.setChecked)
+        placeholders()
+        form.addRow(xps)
+        form.addRow("X label:", xl)
+        form.addRow("Y label:", yl)
+        form.addRow(rev)
+        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb.accepted.connect(dlg.accept)
+        bb.rejected.connect(dlg.reject)
+        form.addRow(bb)
+        if dlg.exec() == QDialog.Accepted:
+            self.set_axes(name, xl.text(), yl.text(), rev.isChecked(),
+                          xps.isChecked())
 
     def show_spectrum_info(self):
         name = self.panel.current_sheet

@@ -118,6 +118,15 @@ TOOLS = [
            "auto": {"type": "boolean", "default": True}}),
     _tool("rename_spectrum", "Rename a spectrum.",
           {"name": _NAME, "new_name": {"type": "string"}}, ["name", "new_name"]),
+    _tool("set_axes",
+          "Set a spectrum's axes: x_label / y_label (empty string = back "
+          "to the default), reversed (x drawn high to low) and xps (true = "
+          "XPS binding-energy spectrum; false = any other data). Data that "
+          "is not XPS should not carry binding-energy / CPS labels. One "
+          "undo step.",
+          {"name": _NAME, "x_label": {"type": "string"},
+           "y_label": {"type": "string"}, "reversed": {"type": "boolean"},
+           "xps": {"type": "boolean"}}, ["name"]),
     _tool("delete_spectrum", "Remove a spectrum (undoable).",
           {"name": _NAME}, ["name"]),
     _tool("export_khervefitting",

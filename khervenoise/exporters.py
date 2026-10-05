@@ -16,7 +16,7 @@ import csv
 import os
 import re
 
-from .document import is_xps_like
+from .document import axis_labels, is_xps_like
 
 _EXP_COL = 50
 _BAD_SHEET_CHARS = re.compile(r'[\[\]\*\?/\\:]')
@@ -44,9 +44,9 @@ def sheet_title(name, taken):
 
 def _x_header(sp):
     name = sp.get('Name', '')
-    if is_xps_like(name) and not sp.get('X_Label'):
+    if is_xps_like(name, sp) and not sp.get('X_Label'):
         return "BE"
-    return _plain(sp.get('X_Label') or "BE")
+    return _plain(axis_labels(name, sp)[0])
 
 
 def _exp_rows(sp):
@@ -99,7 +99,7 @@ def write_text(path, spectra, delimiter=None):
         raise ValueError("Nothing to export.")
     header, cols = [], []
     for sp in spectra:
-        header += [f"{sp['Name']} {_x_header(sp)}", f"{sp['Name']} Intensity"]
+        header += [f"{sp['Name']} {_x_header(sp)}", f"{sp['Name']} {_plain(axis_labels(sp['Name'], sp)[1])}"]
         cols += [sp['B.E.'], sp['Raw Data']]
     n = max(len(c) for c in cols)
     with open(path, 'w', newline='', encoding='utf-8') as fh:

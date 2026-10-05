@@ -118,7 +118,9 @@ def test_write_text(tmp_path):
     sp = make_spectrum("A", [1, 2], [3, 4])
     path = str(tmp_path / "a.csv")
     write_text(path, [sp])
-    assert open(path).read().splitlines()[0] == "A BE,A Intensity"
+    assert open(path).read().splitlines()[0] == "A X,A Y"
+    write_text(path, [make_spectrum("C1s", [1, 2], [3, 4])])
+    assert open(path).read().splitlines()[0] == "C1s BE,C1s Intensity (CPS)"
 
 
 def test_every_vendor_module_registers():
@@ -145,3 +147,25 @@ def test_plain_files_are_not_claimed_by_vendors(tmp_path):
         p.write_text(text)
         assert importers.kind_of(str(p)) == "data", name
         assert importers.read_any(str(p)).spectra[0]['Name'] == "C1s"
+
+
+def test_generic_axes_are_not_xps(tmp_path):
+    from khervenoise.importers import read_any
+    # Arbitrary data is not XPS: generic or header labels, read low to high.
+    assert axis_labels("Data1") == ("X", "Y") and not x_reversed("Data1")
+    for name in ("C1s", "O 1s", "Ti2p3/2", "Survey", "C KLL", "VB"):
+        assert axis_labels(name)[0] == "Binding Energy (eV)", name
+    sp = make_spectrum("run", [1], [2], technique="XPS")
+    assert x_reversed("run", sp)
+    csv = tmp_path / "trace.csv"
+    csv.write_text("Time (s),Voltage (V)\n" +
+                   "".join(f"{i},{i * i}\n" for i in range(10)))
+    sp = read_any(str(csv)).spectra[0]
+    assert axis_labels(sp['Name'], sp) == ("Time (s)", "Voltage (V)")
+    assert not x_reversed(sp['Name'], sp)
+    txt = tmp_path / "scan.txt"
+    txt.write_text("Binding Energy\tCounts\n" +
+                   "".join(f"{290 - i * .1}\t{i}\n" for i in range(10)))
+    sp = read_any(str(txt)).spectra[0]
+    assert axis_labels(sp['Name'], sp)[0] == "Binding Energy (eV)"
+    assert x_reversed(sp['Name'], sp)

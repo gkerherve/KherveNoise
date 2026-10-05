@@ -24,7 +24,7 @@ import re
 from .engine import SUFFIX
 
 FORMAT = "KherveNoise"
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2   # 2: 'Technique' on spectra
 EXTENSION = ".knoise"
 
 # ---------------------------------------------------------------------------
@@ -58,33 +58,64 @@ _TECHNIQUE_AXES = (
 )
 
 XPS_LABELS = ('Binding Energy (eV)', 'Intensity (CPS)')
+GENERIC_LABELS = ('X', 'Y')
+
+# A name that reads as an XPS region: C1s, O 1s, Ti2p, Fe2p3/2, Au4f,
+# Survey, Wide, VB / Valence, Auger lines (C KLL, Ckll, O KLL…).
+_XPS_NAME = re.compile(
+    r'^\s*(?:[A-Z][a-z]?\s*\d[spdf](?:\s*\d/2)?'
+    r'|[A-Z][a-z]?\s*[KLMN][KLMNV]{2}'
+    r'|survey|wide|vb|valence)(?:[\s_~\-.(\d]|$)', re.IGNORECASE)
+_BINDING = re.compile(r'binding|\bb\.?e\.?\b', re.IGNORECASE)
 
 
-def is_xps_like(name):
-    """True when the spectrum really is on a binding-energy axis."""
+def technique_axes(name):
+    """(x label, y label) of a technique named by *name*'s prefix, or None."""
     n = str(name or '')
-    return not any(m(n) for m, _x, _y in _TECHNIQUE_AXES)
+    for matches, x_label, y_label in _TECHNIQUE_AXES:
+        if matches(n):
+            return x_label, y_label
+    return None
+
+
+def is_binding_label(label):
+    return bool(label) and bool(_BINDING.search(str(label)))
+
+
+def is_xps_like(name, spectrum=None):
+    """True only when the spectrum really is XPS on a binding-energy axis:
+    tagged 'Technique': 'XPS' by its importer, labelled Binding Energy, or
+    named like a core level (C1s, O 1s, Survey…).  Anything else is
+    generic data with loose X / Y axes."""
+    sp = spectrum or {}
+    tech = sp.get('Technique')
+    if tech:
+        return str(tech).upper() == 'XPS'
+    if technique_axes(name) is not None:
+        return False
+    if sp.get('X_Label'):
+        return is_binding_label(sp['X_Label'])
+    return bool(_XPS_NAME.match(str(name or '')))
 
 
 def axis_labels(name, spectrum=None):
     """(x label, y label) — a label stored on the spectrum wins."""
-    n = str(name or '')
     sp = spectrum or {}
-    for matches, x_label, y_label in _TECHNIQUE_AXES:
-        if matches(n):
-            return sp.get('X_Label') or x_label, sp.get('Y_Label') or y_label
-    if sp.get('X_Label'):
-        return sp['X_Label'], sp.get('Y_Label') or XPS_LABELS[1]
-    return XPS_LABELS
+    if is_xps_like(name, sp):
+        default = XPS_LABELS
+    else:
+        default = technique_axes(name) or GENERIC_LABELS
+    return sp.get('X_Label') or default[0], sp.get('Y_Label') or default[1]
 
 
 def x_reversed(name, spectrum=None):
     """Axis direction, as the denoiser draws it: XPS (and FTIR) read high
-    to low.  A spectrum may force it with 'X_Reversed'."""
+    to low, anything else low to high.  A spectrum may force it with
+    'X_Reversed'."""
     sp = spectrum or {}
     if 'X_Reversed' in sp:
         return bool(sp['X_Reversed'])
-    return is_xps_like(name) or str(name).upper().startswith('FTIR')
+    return is_xps_like(name, sp) or str(name).upper().startswith('FTIR')
 
 
 def natural_sort_key(name):
@@ -93,7 +124,7 @@ def natural_sort_key(name):
 
 
 def make_spectrum(name, x, y, raw=None, transmission=None, info=None,
-                  x_label=None, y_label=None):
+                  x_label=None, y_label=None, technique=None):
     """A spectrum dict, every column cut to the shortest (as KherveFitting's
     build_core_level_Data does)."""
     x = [float(v) for v in x]
@@ -111,6 +142,8 @@ def make_spectrum(name, x, y, raw=None, transmission=None, info=None,
         sp['X_Label'] = str(x_label)
     if y_label:
         sp['Y_Label'] = str(y_label)
+    if technique:
+        sp['Technique'] = str(technique)
     return sp
 
 

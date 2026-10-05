@@ -109,8 +109,8 @@ class DenoisePanel(QWidget):
         self.N = 0
         self.y_filtered = None
         self.current_sheet = None
-        self.x_label, self.y_label = 'BE (eV)', 'CPS'
-        self.x_reversed = True
+        self.x_label, self.y_label = 'X', 'Y'
+        self.x_reversed = False
 
         # FFT cache
         self.coeffs = None
@@ -965,7 +965,8 @@ class DenoisePanel(QWidget):
                           'Denoise': {'source': name,
                                       'params': {k: (float(v) if isinstance(v, (np.floating,)) else v)
                                                  for k, v in p.items()}}}
-                for key in ('X_Label', 'Y_Label', 'X_Reversed', 'ExperimentalInfo'):
+                for key in ('X_Label', 'Y_Label', 'X_Reversed', 'Technique',
+                            'ExperimentalInfo'):
                     if key in cl:
                         new_cl[key] = cl[key]
                 self.document.add(new_cl, replace=True)

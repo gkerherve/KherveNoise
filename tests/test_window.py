@@ -68,3 +68,12 @@ def test_rename_and_delete(window, vamas_path):
     assert window.document.is_empty()
     window.undo_stack.undo()
     assert window.document.names() == ["Platinum"]
+
+
+def test_set_axes_is_undoable(window, vamas_path):
+    window.open_path(vamas_path, interactive=False)
+    assert window.panel.x_label == "Binding Energy (eV)" and window.panel.x_reversed
+    assert window.set_axes("Pt4f", "Time (s)", "Signal", False, False)
+    assert window.panel.x_label == "Time (s)" and not window.panel.x_reversed
+    window.undo_stack.undo()
+    assert window.panel.x_label == "Binding Energy (eV)" and window.panel.x_reversed

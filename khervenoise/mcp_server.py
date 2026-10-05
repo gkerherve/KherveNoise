@@ -151,7 +151,10 @@ kept, Raw vs Denoised + residual). LOOK AT IT before you report.
 4. create_denoised writes new spectra "<name>_vmd|_wav|_fft" (one per \
 source, originals never change), with auto parameters per spectrum or \
 the parameters you pass.
-5. export_khervefitting writes a workbook KherveFitting opens directly; \
+5. Spectra are not necessarily XPS: only XPS ones get a binding-energy / \
+CPS axis, anything else has generic X / Y (or its file's column headers). \
+set_axes changes a spectrum's labels, direction or XPS flag.
+6. export_khervefitting writes a workbook KherveFitting opens directly; \
 export_csv writes plain columns. save_project writes the .knoise file.
 
 Working rules:

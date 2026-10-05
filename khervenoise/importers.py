@@ -35,7 +35,7 @@ import shutil
 import tempfile
 from dataclasses import dataclass, field
 
-from .document import make_spectrum
+from .document import is_binding_label, make_spectrum, technique_axes
 
 #: KherveFitting reads every Excel / ASC / CSV value back with '.2f'
 #: rounding (add_core_level_Data). Kept so a spectrum denoises to the very
@@ -60,6 +60,30 @@ class ImportResult:
     spectra: list = field(default_factory=list)
     dismissed: list = field(default_factory=list)      # (name, reason)
     source: str = ""
+
+
+def _axes_from_header(h1, h2):
+    """make_spectrum keywords for a column-header pair: a Binding Energy
+    header marks the spectrum XPS, any other text becomes its axis label
+    (the data need not be XPS — time, voltage, wavelength…)."""
+    def clean(h):
+        h = '' if h is None else str(h).strip()
+        if not h or h.lower() == 'nan':
+            return None
+        try:
+            float(h)
+            return None
+        except ValueError:
+            return h
+    h1, h2 = clean(h1), clean(h2)
+    if is_binding_label(h1):
+        return {'technique': 'XPS'}
+    out = {}
+    if h1:
+        out['x_label'] = h1
+    if h2 and h2.upper() not in ('RAW DATA', 'CORRECTED DATA'):
+        out['y_label'] = h2
+    return out
 
 
 def _r2(v):
@@ -239,9 +263,13 @@ def read_vamas(path, work_function=WORK_FUNCTION):
             num_scans, block.signal_collection_time, block.signal_time_correction,
             y_unit, block.block_comment]))
         info['Block'] = f"Block {i}"
-        label = None if x_label.lower().startswith('binding') else f"{x_label} ({block.x_units})"
+        if x_label.lower().startswith('binding'):
+            axes = {'technique': 'XPS'}
+        else:
+            axes = {'x_label': f"{x_label} ({block.x_units})",
+                    'y_label': f"Intensity ({y_unit})" if y_unit else None}
         sp = make_spectrum(name, x_values, corrected, raw=y_values,
-                           transmission=trans, info=info, x_label=label)
+                           transmission=trans, info=info, **axes)
         result.spectra.append(sp)
     return result
 
@@ -281,14 +309,10 @@ def _sheet_spectrum(df, name):
         except (ValueError, TypeError):
             continue
         xs.append(x); ys.append(y); cs.append(c); ts.append(t)
-    header = str(df.iloc[0, 0]).strip() if len(df) else ''
-    label = None
-    if header and not re.search(r'binding|\bbe\b|b\.e\.', header, re.I) \
-            and header.lower() not in ('nan',):
-        label = header
+    axes = _axes_from_header(df.iloc[0, 0], df.iloc[0, 1]) if len(df) else {}
     return make_spectrum(name, [_r2(v) for v in xs], [_r2(v) for v in ys],
                          raw=[_r2(v) for v in cs], transmission=[_r2(v) for v in ts],
-                         x_label=label)
+                         **axes)
 
 
 def _experimental_info(path, sheet_name):
@@ -324,14 +348,23 @@ def _experimental_info(path, sheet_name):
 
 def _numeric_pairs(df):
     """First two mostly-numeric columns of a header-less sheet, for the
-    generic fallback."""
+    generic fallback, and the text heading each column (or None)."""
     import pandas as pd
     num = df.apply(pd.to_numeric, errors='coerce')
     cols = [c for c in num.columns if num[c].notna().sum() >= 4]
     if len(cols) < 2:
         return None
     sub = num[[cols[0], cols[1]]].dropna()
-    return sub.iloc[:, 0].tolist(), sub.iloc[:, 1].tolist()
+
+    def heading(c):
+        first = sub.index[0] if len(sub) else 0
+        for i in range(first - 1, -1, -1):
+            v = df.loc[i, c]
+            if not pd.isna(v) and str(v).strip():
+                return str(v).strip()
+        return None
+    return (sub.iloc[:, 0].tolist(), sub.iloc[:, 1].tolist(),
+            heading(cols[0]), heading(cols[1]))
 
 
 def read_excel(path):
@@ -384,13 +417,14 @@ def read_excel(path):
         label = name if not re.match(r'^(Sheet|Feuil|Tabelle|Hoja)\d*$', name, re.IGNORECASE) else \
             (base if len(frames) == 1 else f"{base}_{name}")
         result.spectra.append(make_spectrum(label, [_r2(v) for v in pair[0]],
-                                            [_r2(v) for v in pair[1]]))
+                                            [_r2(v) for v in pair[1]],
+                                            **_axes_from_header(pair[2], pair[3])))
     return result
 
 
 def _xps_named(name):
-    from .document import is_xps_like
-    return is_xps_like(name)
+    # KherveFitting's sheet filter: any name that is not another technique's.
+    return technique_axes(name) is None
 
 
 # ---------------------------------------------------------------------------
@@ -403,7 +437,7 @@ def _base_name(path):
 
 def read_asc(path):
     """XPS_ASC_CSV_Import.import_xps_asc_file_direct."""
-    data = []
+    data, header = [], None
     with open(path, 'r', encoding='utf-8', errors='replace') as f:
         for line in f:
             if line.strip() and not line.startswith('#'):
@@ -411,12 +445,16 @@ def read_asc(path):
                     parts = line.strip().split(';')
                 elif ',' in line:
                     parts = line.strip().split(',')
+                elif '\t' in line.strip():
+                    parts = line.strip().split('\t')
                 else:
                     parts = line.strip().split()
                 if len(parts) >= 2:
                     try:
                         data.append([float(parts[0]), float(parts[1])])
                     except ValueError:
+                        if not data:
+                            header = parts      # last text line before the data
                         continue
     result = ImportResult(source=path)
     if not data:
@@ -424,7 +462,8 @@ def read_asc(path):
         return result
     xs = [float(f"{x:.2f}") for x, _y in data]
     ys = [float(f"{y:.2f}") for _x, y in data]
-    result.spectra.append(make_spectrum(_base_name(path), xs, ys))
+    axes = _axes_from_header(*header[:2]) if header else {}
+    result.spectra.append(make_spectrum(_base_name(path), xs, ys, **axes))
     return result
 
 
@@ -454,9 +493,11 @@ def read_csv(path):
     if len(num) == 0:
         result.dismissed.append((_base_name(path), "No valid data found in the file."))
         return result
+    head = df.iloc[:num.index[0], :2] if num.index[0] > 0 else None
+    axes = _axes_from_header(*head.iloc[-1].tolist()) if head is not None else {}
     result.spectra.append(make_spectrum(_base_name(path),
                                         [_r2(v) for v in num.iloc[:, 0]],
-                                        [_r2(v) for v in num.iloc[:, 1]]))
+                                        [_r2(v) for v in num.iloc[:, 1]], **axes))
     return result
 
 
@@ -495,7 +536,13 @@ def read_any(path):
     plain data files."""
     fmts = vendor_formats(path)
     if fmts:
-        return fmts[0].reader(path)
+        result = fmts[0].reader(path)
+        # Instrument files are photoelectron spectra unless the reader
+        # labelled another axis (XAS photon energy, kinetic energy…).
+        for sp in result.spectra:
+            if 'Technique' not in sp and not sp.get('X_Label'):
+                sp['Technique'] = 'XPS'
+        return result
     kind = kind_of(path)
     if kind == "excel":
         return read_excel(path)

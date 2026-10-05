@@ -16,7 +16,7 @@ import os
 import numpy as np
 
 from . import __version__, engine
-from .document import axis_labels
+from .document import axis_labels, is_xps_like, x_reversed
 from .mcp_schema import check_args
 
 
@@ -105,7 +105,9 @@ class McpToolExecutor:
             x = sp.get('B.E.') or []
             row = {"name": name, "points": len(x),
                    "x_min": min(x) if x else None, "x_max": max(x) if x else None,
-                   "x_label": axis_labels(name, sp)[0]}
+                   "x_label": axis_labels(name, sp)[0],
+                   "y_label": axis_labels(name, sp)[1],
+                   "xps": is_xps_like(name, sp)}
             if sp.get('Denoise'):
                 row["denoised_from"] = sp['Denoise'].get('source')
                 row["params"] = sp['Denoise'].get('params')
@@ -230,6 +232,15 @@ class McpToolExecutor:
         if not self._w.rename_spectrum(name, new_name):
             raise _ToolError(f"Cannot rename to {new_name!r} (empty or taken).")
         return {"renamed": name, "to": new_name}
+
+    def _t_set_axes(self, name, x_label=None, y_label=None, reversed=None,
+                    xps=None):
+        self._spectrum(name)
+        self._w.set_axes(name, x_label, y_label, reversed, xps)
+        sp = self.doc.get(name)
+        xl, yl = axis_labels(name, sp)
+        return {"name": name, "x_label": xl, "y_label": yl,
+                "reversed": x_reversed(name, sp), "xps": is_xps_like(name, sp)}
 
     def _t_delete_spectrum(self, name):
         self._spectrum(name)

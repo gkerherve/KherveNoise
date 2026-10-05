@@ -129,9 +129,14 @@ Scienta map), that spectrum is imported.
 Diamond NeXus files and Scienta HDF5 maps need the optional *h5py*
 package (in `requirements.txt`).
 
-The spectrum's name decides its axis: core-level names (C1s, O1s, Survey…)
-get the binding-energy axis read high to low; names starting with *FTIR*,
-*Raman*, *EELS*, *XAS*, *XRD*… get their technique's label and direction.
+KherveNoise is not limited to XPS: any x / y data can be denoised. Only an
+XPS spectrum gets the *Binding Energy (eV)* / *Intensity (CPS)* axes read
+high to low — one from an instrument file or VAMAS binding-energy block, a
+file whose x column is headed *Binding Energy* / *BE*, or a core-level name
+(C1s, O 1s, Ti2p, Survey, VB…). Names starting with *FTIR*, *Raman*, *EELS*,
+*XAS*, *XRD*… get their technique's label and direction. Anything else gets
+its file's column headers as axis labels (plain *X* / *Y* when there are
+none), read low to high. **Spectrum ▸ Axes…** changes any of this.
 
 ### Saving and exporting
 
@@ -146,6 +151,8 @@ get the binding-energy axis read high to low; names starting with *FTIR*,
 
 ## Spectrum menu
 
+- **Axes…** sets the x and y labels, the x direction and whether the
+  spectrum is XPS (binding energy). Undoable.
 - **Rename** (F2), **Delete** and **Spectrum Information** (acquisition
   details, and for a denoised copy its source and parameters).
 - *Edit ▸ Undo / Redo* reverts any import, create, rename or delete.
