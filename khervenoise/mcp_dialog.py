@@ -55,7 +55,7 @@ class McpServerDialog(QDialog):
     def __init__(self, bridge, parent=None):
         super().__init__(parent)
         self._bridge = bridge
-                self.setWindowTitle("Connect to Claude (MCP)")
+        self.setWindowTitle("Connect to Claude (MCP)")
         self.setMinimumWidth(620)
         self._build_ui()
         self._refresh()

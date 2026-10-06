@@ -85,3 +85,17 @@ def test_stdio_server_through_bridge(window, vamas_path, qapp):
     assert not replies[3]["result"]["isError"]
     assert replies[4]["result"]["content"][0]["type"] == "image"
     assert window.document.names() == ["Pt4f"]
+
+
+def test_connect_dialog_opens_and_enables_the_bridge(window, qapp):
+    # AI > Connect to Claude: the module must import and the dialog build.
+    from khervenoise.mcp_dialog import McpServerDialog
+    dlg = McpServerDialog(window._ensure_bridge(), window)
+    assert dlg.windowTitle() == "Connect to Claude (MCP)"
+    dlg._enable.setChecked(True)
+    assert window.bridge.is_running()
+    dlg._access.setCurrentIndex(0)
+    assert window.bridge.access() == "read"
+    dlg._enable.setChecked(False)
+    assert not window.bridge.is_running()
+    dlg.close()
